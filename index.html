@@ -234,6 +234,23 @@ textarea{min-height:130px;resize:vertical}
 #status.ok{color:var(--lime)}
 #status.err{color:var(--orange)}
 
+/* success modal */
+.modal{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;background:rgba(5,5,8,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
+.modal.show{opacity:1;visibility:visible}
+.mbox{width:100%;max-width:440px;background:var(--card);border:1px solid rgba(200,255,62,.3);border-radius:28px;padding:40px 32px 32px;text-align:center;box-shadow:0 40px 100px -20px rgba(0,0,0,.9),0 0 80px -30px var(--lime);transform:translateY(24px) scale(.96);transition:transform .45s cubic-bezier(.2,.9,.3,1.2)}
+.modal.show .mbox{transform:none}
+.tick{width:84px;height:84px;margin:0 auto 22px;border-radius:50%;background:var(--lime);display:grid;place-items:center;box-shadow:0 0 0 10px rgba(200,255,62,.12)}
+.tick svg{width:42px;height:42px;fill:none;stroke:#07070a;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40}
+.modal.show .tick svg{animation:draw .6s .25s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.mbox h3{font-size:1.9rem;margin-bottom:10px}
+.mbox p{color:var(--mut);font-size:.97rem}
+.mbox p b{color:var(--ink);font-weight:600}
+.mmeta{margin:22px 0 26px;padding:14px 16px;border:1px dashed rgba(255,255,255,.16);border-radius:14px;font-size:.82rem;color:var(--mut);display:grid;gap:4px;text-align:left}
+.mmeta b{color:var(--ink);font-weight:500}
+.mbtns{display:grid;gap:10px}
+.mbtns .btn{justify-content:center;width:100%}
+
 /* footer */
 footer{padding:30px 0 0;overflow:hidden}
 .fl{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;padding-bottom:30px;color:var(--mut);font-size:.88rem}
@@ -505,6 +522,23 @@ footer{padding:30px 0 0;overflow:hidden}
   <div class="wm" aria-hidden="true">RISHATECH</div>
 </footer>
 
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+  <div class="mbox">
+    <div class="tick"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h3 id="mtitle">Message sent!</h3>
+    <p>Thanks <b id="mName">there</b>, we've received your enquiry and will reply to <b id="mEmail"></b> within one business day.</p>
+    <div class="mmeta">
+      <span>Service: <b id="mSvc"></b></span>
+      <span>Sent: <b id="mTime"></b></span>
+      <span>Status: <b style="color:var(--lime)">✓ Delivered to Rishatech</b></span>
+    </div>
+    <div class="mbtns">
+      <a class="btn p" href="https://wa.me/919198985665?text=Hi%20Rishatech%2C%20I%20just%20sent%20an%20enquiry%20from%20your%20website" target="_blank" rel="noopener">Also chat on WhatsApp</a>
+      <button class="btn g" type="button" id="mClose">Done</button>
+    </div>
+  </div>
+</div>
+
 <a class="wa" href="https://wa.me/919198985665?text=Hi%20Rishatech" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
   <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 5h20a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H15l-6 5v-5H6a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3z"/></svg>
 </a>
@@ -573,6 +607,21 @@ footer{padding:30px 0 0;overflow:hidden}
   // contact form -> sent straight to your inbox (no email app needed for the visitor)
   var form=$("#form"),st=$("#status"),btn=$("#send");
   function say(msg,cls){st.textContent=msg;st.className=cls||""}
+
+  // success popup
+  var modal=$("#modal");
+  function openModal(d){
+    $("#mName").textContent=(d.name||"there").split(" ")[0];
+    $("#mEmail").textContent=d.email;
+    $("#mSvc").textContent=d.service;
+    $("#mTime").textContent=new Date().toLocaleString("en-IN",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"});
+    modal.classList.add("show");
+    $("#mClose").focus();
+  }
+  function closeModal(){modal.classList.remove("show")}
+  $("#mClose").addEventListener("click",closeModal);
+  modal.addEventListener("click",function(e){if(e.target===modal)closeModal()});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeModal()});
   form.addEventListener("submit",function(e){
     e.preventDefault();
     if(form.botcheck.checked)return;
@@ -592,6 +641,7 @@ footer{padding:30px 0 0;overflow:hidden}
     };
     // Safety net: if the access key hasn't been added yet, fall back to the visitor's email app
     if(ACCESS_KEY.indexOf("YOUR_")===0){
+      say("Opening your email app. (Site owner: add the Web3Forms ACCESS_KEY to enable direct sending.)","err");
       location.href="mailto:"+EMAIL+"?subject="+encodeURIComponent(data.subject)+"&body="+encodeURIComponent("Name: "+data.name+"\nEmail: "+data.email+"\nPhone: "+data.phone+"\nService: "+data.service+"\n\n"+data.message);
       return;
     }
@@ -602,7 +652,8 @@ footer{padding:30px 0 0;overflow:hidden}
       body:JSON.stringify(data)
     }).then(function(r){return r.json()}).then(function(res){
       if(res.success){
-        say("✓ Thank you! Your message has been sent. We'll reply within one business day.","ok");
+        say("✓ Message sent successfully.","ok");
+        openModal(data);
         form.reset();
       }else{
         say("Something went wrong. Please WhatsApp us on +91 91989 85665 or email "+EMAIL+".","err");
